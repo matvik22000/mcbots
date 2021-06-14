@@ -22,7 +22,7 @@ const targets = {
     item: 0
 }
 let build_item;
-let count = 2
+let count = 1
 let building = [];
 let transition_trigger = []
 let brake_timeout = []
@@ -34,7 +34,7 @@ console.log(building)
 
 for (let i = 0; i < count; i++) {
     setTimeout(() => {
-        main(i)
+        worker(i)
     }, 10000 * i)
 
     building.push(false)
@@ -43,7 +43,7 @@ for (let i = 0; i < count; i++) {
 }
 
 
-function main(i) {
+function builder1(i) {
     let bot = mineflayer.createBot({
         //host: 'beby.aternos.me', // minecraft server ip
         host: HOST,
@@ -53,14 +53,14 @@ function main(i) {
     // inventoryViewer(bot)
 
     bot.loadPlugin(require('mineflayer-collectblock').plugin)
-    bot.loadPlugin(minecraftHawkEye)
+    // bot.loadPlugin(minecraftHawkEye)
 
 
     bot.on("spawn", () => {
         mcData = require('minecraft-data')(bot.version)
         build_item = mcData.blocksByName["dirt"].id;
         let idle = new BehaviorIdle()
-        const collectingGrass = createCollectingGrassState(bot, i)
+        const collectingGrass = createCollectItemState(bot, i, "grass_block")
         const buildState = createBuildState(bot, i)
         const caclPos = new BehaviorCalcPos(bot, targets)
         const moveTo = new BehaviorMoveTo(bot, targets)
@@ -122,30 +122,88 @@ function main(i) {
         }, 500)
     })
 
-    bot.on("end", () => {
-        bot = mineflayer.createBot({
-            //host: 'beby.aternos.me', // minecraft server ip
-            host: HOST,
-            username: 'amogussus6', // minecraft username
-            port: PORT
-        })
+}
+
+function worker(i) {
+    let bot = mineflayer.createBot({
+        //host: 'beby.aternos.me', // minecraft server ip
+        host: HOST,
+        username: 'amogussus' + i, // minecraft username
+        port: PORT
     })
+    bot.loadPlugin(require('mineflayer-collectblock').plugin)
+
+    bot.on("spawn", () => {
+        mcData = require('minecraft-data')(bot.version)
+        let targets = {}
+        const log = "oak_wood"
+        const planks = "oak_planks"
+        const crafting_table = "crafting_table"
+
+        const collectWood = createCollectItemState(bot, i, log)
+        const craft = BehaviorCraft(bot, targets)
+        const placeTable = new BehaviorPlaceBlock(bot, targets)
+
+        const transitions = [
+            new StateTransition({
+                parent: collectWood,
+                child: craft,
+                shouldTransition: () => bot.inventory.count(mcData.blocksByName[log].id, null) >= 4,
+                onTransition: () => {
+                    targets.item = mcData.blocksByName[planks].id
+                    targets.count = 3
+                }
+            }),
+
+            new StateTransition({
+                parent: craft,
+                child: craft,
+                shouldTransition: () => bot.inventory.count(mcData.blocksByName[planks].id, null) >= 12,
+                onTransition: () => {
+                    targets.item = mcData.blocksByName[crafting_table].id
+                    targets.count = 1
+                }
+            }),
+
+            new StateTransition({
+                parent: craft,
+                child: placeTable,
+                shouldTransition: () => bot.inventory.count(mcData.blocksByName[crafting_table].id, null) >= 1,
+                onTransition: () => {
+                    targets.position = bot.entity.position
+                    this.targets.blockFace = new Vec3(0, 1, 0)
+                    targets.item = mcData.blocksByName[crafting_table].id
+
+                }
+            }),
+        ]
+
+        const port = 1340
+        const rootLayer = new NestedStateMachine(transitions, collectWood);
+        setTimeout(() => {
+            const stateMachine = new BotStateMachine(bot, rootLayer);
+            const webserver = new StateMachineWebserver(bot, stateMachine, port + i);
+            webserver.startServer();
+        }, 500)
+
+    })
+
 }
 
 const BehaviorPrepareToPlacing = (function () {
     name = "BehaviorPrepareToPlacing"
 
-    function BehaviorPrepareToPlacing(bot, targets) {
+    function BehaviorPrepareToPlacing(bot, targets, block_name) {
         this.bot = bot
         this.targets = targets
         this.active = false;
         this.stateName = "BehaviorPrepareToPlacing";
-
+        this.block_name = block_name
 
     }
 
     BehaviorPrepareToPlacing.prototype.onStateEntered = function () {
-        this.targets.item = mcData.blocksByName["dirt"].id
+        this.targets.item = mcData.blocksByName[this.block_name].id
         this.targets.blockFace = new Vec3(0, 1, 0)
 
         this.targets.positions = [
@@ -167,17 +225,18 @@ const BehaviorPrepareToPlacing = (function () {
 
 const BehaviorNextBlock = (function () {
 
-    function BehaviorNextBlock(bot, targets) {
+    function BehaviorNextBlock(bot, targets, block_name) {
         this.bot = bot
         this.targets = targets
         this.active = false;
         this.stateName = "BehaviorNextBlock";
+        this.block_name = block_name
 
 
     }
 
     BehaviorNextBlock.prototype.onStateEntered = function () {
-        this.targets.item = mcData.blocksByName["dirt"].id
+        this.targets.item = mcData.blocksByName[this.block_name].id
         this.targets.position = this.targets.positions.pop(0)
 
     }
@@ -254,7 +313,10 @@ const BehaviorFindBlock = (function () {
     }
 
     BehaviorFindBlock.prototype.onStateEntered = function () {
-        this.targets.position = this.bot.findBlock({matching: [mcData.blocksByName["grass_block"].id], maxDistance: 64}).position
+        this.targets.position = this.bot.findBlock({
+            matching: [mcData.blocksByName["grass_block"].id],
+            maxDistance: 64
+        }).position
     }
 
     BehaviorFindBlock.prototype.onStateExited = function () {
@@ -293,8 +355,8 @@ function createBuildState(bot, i) {
 
     const equipItem = new BehaviorEquipItem(bot, targets)
     const placeBlock = new BehaviorPlaceBlock(bot, targets)
-    const prepare = new BehaviorPrepareToPlacing(bot, targets)
-    const nextBlock = new BehaviorNextBlock(bot, targets)
+    const prepare = new BehaviorPrepareToPlacing(bot, targets, "dirt")
+    const nextBlock = new BehaviorNextBlock(bot, targets, "dirt")
 
     const transitions = [
 
@@ -336,9 +398,9 @@ function createBuildState(bot, i) {
 }
 
 
-function createCollectingGrassState(bot, i) {
+function createCollectItemState(bot, i, block_name) {
     const targets = {
-        item: "grass_block"
+        item: block_name
     };
     const findBlock = new BehaviorFindBlock(bot, targets)
     const moveTo = new BehaviorMoveTo(bot, targets)
@@ -384,7 +446,8 @@ function createCollectingGrassState(bot, i) {
                 brake_timeout[i] = false
                 try {
                     clearTimeout(targets.brake_timeout)
-                } catch (e) {}
+                } catch (e) {
+                }
             }
         }),
 
@@ -400,4 +463,23 @@ function createCollectingGrassState(bot, i) {
 }
 
 
+const BehaviorCraft = (function () {
+
+    function BehaviorCraft(bot, targets) {
+        this.bot = bot
+        this.targets = targets
+        this.active = false;
+        this.stateName = "BehaviorCraft";
+
+    }
+
+    BehaviorCraft.prototype.onStateEntered = function () {
+        this.bot.craft(this.bot.recipesFor(this.targets.item, null, null, null)[0], this.targets.count, null)
+    }
+
+    BehaviorCraft.prototype.onStateExited = function () {
+
+    }
+    return BehaviorCraft
+}())
 
