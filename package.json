@@ -2,7 +2,9 @@
   "dependencies": {
     "fs": "^0.0.1-security",
     "fuzzyset.js": "^1.0.6",
+    "homebridge": "^1.3.4",
     "mc-curseforge-api": "^2.2.3",
+    "miio": "^0.15.6",
     "minecrafthawkeye": "^1.2.7",
     "mineflayer": "^3.7.0",
     "mineflayer-collectblock": "^1.3.4",

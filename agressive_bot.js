@@ -5,6 +5,7 @@ const pvp = require('mineflayer-pvp').plugin
 const minecraftHawkEye = require('minecrafthawkeye');
 const {standalone} = require('prismarine-viewer')
 const inventoryViewer = require('mineflayer-web-inventory')
+fs = require('fs');
 const {
     StateTransition,
     BotStateMachine,
@@ -22,48 +23,62 @@ const targets = {
     item: 0
 }
 let build_item;
-let count = 1
+let count = 5
 let building = [];
 let transition_trigger = []
 let brake_timeout = []
 let TIMEOUT = 8000
-const PORT = 30808
-const HOST = 'localhost'
-console.log(building)
+const PORT = 49958
+const HOST = 'BTAnarchya.aternos.me'
+// const HOST = "127.0.0.1"
 
 
 for (let i = 0; i < count; i++) {
     setTimeout(() => {
-        worker(i)
+        builder1(i)
     }, 10000 * i)
 
     building.push(false)
     transition_trigger.push(false)
     brake_timeout.push(false)
 }
+console.log(building)
 
 
 function builder1(i) {
     let bot = mineflayer.createBot({
         //host: 'beby.aternos.me', // minecraft server ip
         host: HOST,
-        username: 'amogussus' + i, // minecraft username
+        username: 'bebrik' + i, // minecraft username
         port: PORT
     })
     // inventoryViewer(bot)
-
-    bot.loadPlugin(require('mineflayer-collectblock').plugin)
     // bot.loadPlugin(minecraftHawkEye)
+    bot.loadPlugin(require('mineflayer-pathfinder').pathfinder)
+
+    bot.on("chat", (username, message) => {
+        if (username === bot.username) return
+        if (i !== 0) return;
+        fs.appendFile("chat.txt", message + "\n", () => {})
+        bot.chat(`Политех - хуйня, ИТМО - класс, кто не согласен - тот пидорас`)
+
+    })
+
 
 
     bot.on("spawn", () => {
         mcData = require('minecraft-data')(bot.version)
-        build_item = mcData.blocksByName["dirt"].id;
+        // build_item = mcData.blocksByName["dirt"].type;
+        build_item = 15;
+        // console.log(build_item)
         let idle = new BehaviorIdle()
         const collectingGrass = createCollectItemState(bot, i, "grass_block")
         const buildState = createBuildState(bot, i)
         const caclPos = new BehaviorCalcPos(bot, targets)
         const moveTo = new BehaviorMoveTo(bot, targets)
+        // console.log(bot.inventory)
+        // console.log(bot.inventory.count(15, null))
+
 
         const transitions = [
             new StateTransition({
@@ -113,7 +128,7 @@ function builder1(i) {
 
         ]
 
-        const port = 1340
+        const port = 1340 + i
         const rootLayer = new NestedStateMachine(transitions, idle);
         setTimeout(() => {
             const stateMachine = new BotStateMachine(bot, rootLayer);
@@ -124,71 +139,71 @@ function builder1(i) {
 
 }
 
-function worker(i) {
-    let bot = mineflayer.createBot({
-        //host: 'beby.aternos.me', // minecraft server ip
-        host: HOST,
-        username: 'amogussus' + i, // minecraft username
-        port: PORT
-    })
-    bot.loadPlugin(require('mineflayer-collectblock').plugin)
-
-    bot.on("spawn", () => {
-        mcData = require('minecraft-data')(bot.version)
-        let targets = {}
-        const log = "oak_wood"
-        const planks = "oak_planks"
-        const crafting_table = "crafting_table"
-
-        const collectWood = createCollectItemState(bot, i, log)
-        const craft = BehaviorCraft(bot, targets)
-        const placeTable = new BehaviorPlaceBlock(bot, targets)
-
-        const transitions = [
-            new StateTransition({
-                parent: collectWood,
-                child: craft,
-                shouldTransition: () => bot.inventory.count(mcData.blocksByName[log].id, null) >= 4,
-                onTransition: () => {
-                    targets.item = mcData.blocksByName[planks].id
-                    targets.count = 3
-                }
-            }),
-
-            new StateTransition({
-                parent: craft,
-                child: craft,
-                shouldTransition: () => bot.inventory.count(mcData.blocksByName[planks].id, null) >= 12,
-                onTransition: () => {
-                    targets.item = mcData.blocksByName[crafting_table].id
-                    targets.count = 1
-                }
-            }),
-
-            new StateTransition({
-                parent: craft,
-                child: placeTable,
-                shouldTransition: () => bot.inventory.count(mcData.blocksByName[crafting_table].id, null) >= 1,
-                onTransition: () => {
-                    targets.position = bot.entity.position
-                    this.targets.blockFace = new Vec3(0, 1, 0)
-                    targets.item = mcData.blocksByName[crafting_table].id
-
-                }
-            }),
-        ]
-
-        const port = 1340
-        const rootLayer = new NestedStateMachine(transitions, collectWood);
-        setTimeout(() => {
-            const stateMachine = new BotStateMachine(bot, rootLayer);
-            const webserver = new StateMachineWebserver(bot, stateMachine, port + i);
-            webserver.startServer();
-        }, 500)
-
-    })
-
-}
+// function worker(i) {
+//     let bot = mineflayer.createBot({
+//         //host: 'beby.aternos.me', // minecraft server ip
+//         host: HOST,
+//         username: 'amogussus' + i, // minecraft username
+//         port: PORT
+//     })
+//     bot.loadPlugin(require('mineflayer-collectblock').plugin)
+//
+//     bot.on("spawn", () => {
+//         mcData = require('minecraft-data')(bot.version)
+//         let targets = {}
+//         const log = "oak_wood"
+//         const planks = "oak_planks"
+//         const crafting_table = "crafting_table"
+//
+//         const collectWood = createCollectItemState(bot, i, log)
+//         const craft = BehaviorCraft(bot, targets)
+//         const placeTable = new BehaviorPlaceBlock(bot, targets)
+//
+//         const transitions = [
+//             new StateTransition({
+//                 parent: collectWood,
+//                 child: craft,
+//                 shouldTransition: () => bot.inventory.count(mcData.blocksByName[log].id, null) >= 4,
+//                 onTransition: () => {
+//                     targets.item = mcData.blocksByName[planks].id
+//                     targets.count = 3
+//                 }
+//             }),
+//
+//             new StateTransition({
+//                 parent: craft,
+//                 child: craft,
+//                 shouldTransition: () => bot.inventory.count(mcData.blocksByName[planks].id, null) >= 12,
+//                 onTransition: () => {
+//                     targets.item = mcData.blocksByName[crafting_table].id
+//                     targets.count = 1
+//                 }
+//             }),
+//
+//             new StateTransition({
+//                 parent: craft,
+//                 child: placeTable,
+//                 shouldTransition: () => bot.inventory.count(mcData.blocksByName[crafting_table].id, null) >= 1,
+//                 onTransition: () => {
+//                     targets.position = bot.entity.position
+//                     this.targets.blockFace = new Vec3(0, 1, 0)
+//                     targets.item = mcData.blocksByName[crafting_table].id
+//
+//                 }
+//             }),
+//         ]
+//
+//         const port = 1340
+//         const rootLayer = new NestedStateMachine(transitions, collectWood);
+//         setTimeout(() => {
+//             const stateMachine = new BotStateMachine(bot, rootLayer);
+//             const webserver = new StateMachineWebserver(bot, stateMachine, port + i);
+//             webserver.startServer();
+//         }, 500)
+//
+//     })
+//
+// }
 
 const BehaviorPrepareToPlacing = (function () {
     name = "BehaviorPrepareToPlacing"
@@ -297,7 +312,7 @@ const BehaviorCalcPos = (function () {
     }
 
     BehaviorCalcPos.prototype.onStateExited = function () {
-        this.bot.chat("moving to ")
+
     }
     return BehaviorCalcPos
 }())
@@ -320,7 +335,7 @@ const BehaviorFindBlock = (function () {
     }
 
     BehaviorFindBlock.prototype.onStateExited = function () {
-        this.bot.chat("moving to ")
+
     }
     return BehaviorFindBlock
 }())
@@ -341,7 +356,8 @@ const ExitBuilding = (function () {
     }
 
     ExitBuilding.prototype.onStateExited = function () {
-        this.bot.chat("exit building")
+        this.bot.chat("хуй построен на координатах " + this.bot.entity.position)
+        console.log("хуй построен на координатах " + this.bot.entity.position + " " + this.bot.name)
     }
     return ExitBuilding
 }())
@@ -463,23 +479,23 @@ function createCollectItemState(bot, i, block_name) {
 }
 
 
-const BehaviorCraft = (function () {
-
-    function BehaviorCraft(bot, targets) {
-        this.bot = bot
-        this.targets = targets
-        this.active = false;
-        this.stateName = "BehaviorCraft";
-
-    }
-
-    BehaviorCraft.prototype.onStateEntered = function () {
-        this.bot.craft(this.bot.recipesFor(this.targets.item, null, null, null)[0], this.targets.count, null)
-    }
-
-    BehaviorCraft.prototype.onStateExited = function () {
-
-    }
-    return BehaviorCraft
-}())
+// const BehaviorCraft = (function () {
+//
+//     function BehaviorCraft(bot, targets) {
+//         this.bot = bot
+//         this.targets = targets
+//         this.active = false;
+//         this.stateName = "BehaviorCraft";
+//
+//     }
+//
+//     BehaviorCraft.prototype.onStateEntered = function () {
+//         this.bot.craft(this.bot.recipesFor(this.targets.item, null, null, null)[0], this.targets.count, null)
+//     }
+//
+//     BehaviorCraft.prototype.onStateExited = function () {
+//
+//     }
+//     return BehaviorCraft
+// }())
 

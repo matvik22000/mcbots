@@ -7,7 +7,7 @@ const { GoalBlock } = require('mineflayer-pathfinder').goals
 const bot = mineflayer.createBot({
     username: 'Bot',
     host: "localhost",
-    port: 20402
+    port: 1036
 })
 
 bot.loadPlugin(pathfinder)
